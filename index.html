@@ -3,6 +3,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SKKM - SION ITB STIKOM Bali v2.1</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#f3f4f6;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb;--th:#f9fafb;--bl:#0b6fd6;--tab:#e8f1fd;--ok:#15803d;--okb:#dcfce7;--wa:#a16207;--wab:#fef9c3;--er:#b91c1c;--erb:#fee2e2;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -34,6 +35,11 @@ input{padding:10px 12px;border:1px solid var(--bd);border-radius:8px;background:
 button{padding:10px 18px;border:0;border-radius:8px;background:var(--bl);color:#fff;font:inherit;font-weight:500;cursor:pointer}button.s{background:var(--bd);color:var(--tx);padding:6px 12px}button.d{background:var(--er)}button:disabled{opacity:.5}
 .msg{margin:0 0 16px;padding:10px 14px;border-radius:8px;background:var(--tab);color:var(--bl)}.msg.e{background:var(--erb);color:var(--er)}.note{color:var(--mu);font-size:13px;margin-top:14px}code{font:600 14px ui-monospace,monospace;letter-spacing:.05em}
 @media(max-width:600px){.body{padding:18px}header{padding:14px 5%}}
+.wb{display:flex;min-height:96px;max-width:560px;margin:12px 0;border-radius:8px;overflow:hidden;border:1px solid var(--bd)}.wb.used{opacity:.45}
+.wb1{flex:1.3;min-width:0;background:#1e4fa3;color:#fff;padding:10px 12px;display:grid;align-content:center;gap:4px}.wb1 small{opacity:.8;font-size:11px}
+.wb2{background:#f08a24;padding:10px;display:grid;place-items:center}.wb2 svg{width:76px;height:76px;display:block}
+.wb3{flex:1.3;min-width:0;background:#23272e;color:#e5e7eb;padding:10px 12px;display:grid;align-content:center;gap:3px;font-size:12px}.wb3 small{opacity:.8;font-size:11px;word-break:break-all}
+.wb4{width:22px;background:#d1d5db}
 </style></head><body>
 <header><h1>SION ITB STIKOM Bali v2.1</h1><div class="us"><div class="av">🧑</div><div>ERIK BINTAN…<br><span id="hn">-</span></div></div></header>
 <nav><a>Home</a><a>Civitas ⌄</a><a class="on" id="pers">Personal ⌄</a><a>Keuangan</a><a>Kerja Praktek ⌄</a><a>Tugas Akhir ⌄</a><a>Akademik ⌄</a><a>Etc ⌄</a>
@@ -43,24 +49,26 @@ button{padding:10px 18px;border:0;border-radius:8px;background:var(--bl);color:#
 <script>
 const SB_URL="https://eabcubayvkgtptvltihh.supabase.co",SB_KEY="sb_publishable_XAtElcShaCubfd2iz0OutQ_ccdXw4a8",TARGET=20,AL="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const sb=SB_URL.startsWith("https://")?window.supabase.createClient(SB_URL,SB_KEY):null;
-let uid=localStorage.uid||(localStorage.uid=crypto.randomUUID()),nim=localStorage.nim,admin=false,tab="ringkasan",codes=[],claims=[],msg=null,draft="",ev={n:"",p:5,j:5},lg={e:"",p:""};
+let uid=localStorage.uid||(localStorage.uid=crypto.randomUUID()),nim=localStorage.nim,admin=false,tab="ringkasan",codes=[],claims=[],tix=[],msg=null,draft="",ev={n:"",p:5,j:5},lg={e:"",p:""};
 const showAdmin=location.hash==="#admin";
 const $=s=>document.querySelector(s),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const fmt=t=>t?new Date(t).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric"}):"-";
+function qrSvg(t){const q=qrcode(0,"M");q.addData(t);q.make();const n=q.getModuleCount(),m=2;let p="";for(let r=0;r<n;r++)for(let c=0;c<n;c++)if(q.isDark(r,c))p+=`M${c+m} ${r+m}h1v1h-1z`;return `<svg viewBox="0 0 ${n+2*m} ${n+2*m}" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path fill="#000" d="${p}"/></svg>`}
 const gen=()=>Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>AL[b%AL.length]).join("");
 $("#pers").onclick=()=>$("#dd").classList.toggle("open");
-const T={ringkasan:"Ringkasan",tiket:"Beli Tiket (Dummy)",klaim:"Klaim Poin",riwayat:"Riwayat"};
+const T={ringkasan:"Ringkasan",tiket:"Tiket",klaim:"Klaim Poin",riwayat:"Riwayat"};
 const EVS=[["Seminar Nasional Cyber Security",5,"Rp 50.000"],["Donasi & Workshop Peduli Bali",3,"Rp 25.000"],["Workshop UI/UX Komunitas Luar",4,"Rp 35.000"]];
 function mine(){return claims.filter(c=>c.uid===uid).sort((a,b)=>b.ts-a.ts)}
 async function load(){
  if(!sb){msg=["e","Isi SB_URL dan SB_KEY di bagian atas script file ini."];return render()}
  const b=await sb.from("claims").select("*").order("created_at",{ascending:false});
+ const t=await sb.rpc("tiket_saya2",{p_uid:uid});tix=t.data||[];
  const a=admin?await sb.from("codes").select("*").order("created_at",{ascending:false}):await sb.rpc("tiket_saya",{p_uid:uid});
  const er=a.error||b.error;
  if(er)msg=["e","Gagal terhubung ke server: "+er.message];
  else{codes=a.data.map(c=>({...c,id:c.code,ts:Date.parse(c.created_at)}));claims=b.data.map(c=>({...c,ts:Date.parse(c.created_at)}))}
  render()}
-async function buy(i){const[e,p]=EVS[i],r=await sb.rpc("beli_tiket",{p_code:gen(),p_event:e,p_pts:p,p_uid:uid});msg=r.error?["e",r.error.message]:["","Pembelian berhasil. Kode tiket ada di Tiket saya."];await load()}
+async function buy(i){const[e,p]=EVS[i],r=await sb.rpc("beli_tiket2",{p_token:gen()+gen().slice(0,2),p_event:e,p_pts:p,p_uid:uid,p_nim:nim});msg=r.error?["e",r.error.message]:["","Pembelian berhasil. QR tiketmu ada di bawah."];await load()}
 async function claim(){const code=draft.trim().toUpperCase();msg=null;
  if(!code)msg=["e","Masukkan kode tiket terlebih dahulu."];
  else{const r=await sb.rpc("klaim_kode",{p_code:code,p_uid:uid,p_nim:nim});
@@ -72,7 +80,7 @@ async function dec(c,ok){await sb.from("claims").update({status:ok?"Disetujui":"
 async function mk(){const n=ev.n.trim(),j=Math.min(50,Math.max(1,+ev.j||1));if(!n){msg=["e","Nama kegiatan wajib diisi."];return render()}
  const r=await sb.from("codes").insert(Array.from({length:j},()=>({code:gen(),event:n,pts:+ev.p||1})));msg=r.error?["e",r.error.message]:["",j+" kode dibuat."];await load()}
 async function wipe(){if(!confirm("Hapus semua kode dan klaim dari server?"))return;
- await sb.from("claims").delete().not("id","is",null);await sb.from("codes").delete().not("code","is",null);msg=["","Semua data dihapus dari server."];await load()}
+ await sb.from("claims").delete().not("id","is",null);await sb.from("codes").delete().not("code","is",null);await sb.from("tickets").delete().not("token","is",null);msg=["","Semua data dihapus dari server."];await load()}
 async function login(){const r=await sb.auth.signInWithPassword({email:lg.e,password:lg.p});if(r.error)msg=["e","Login gagal: "+r.error.message];else{admin=true;msg=null}await load()}
 async function logout(){await sb.auth.signOut();admin=false;tab="ringkasan";await load()}
 const st=s=>`<span class="st ${s}">${s==="tersedia"?"Tersedia":s==="terpakai"?"Terpakai":s}</span>`;
@@ -84,8 +92,8 @@ function render(){
  const m=msg?`<p class="msg ${msg[0]}">${esc(msg[1])}</p>`:"",my=mine(),pts=my.filter(c=>c.status==="Disetujui").reduce((s,c)=>s+c.pts,0),wait=my.filter(c=>c.status==="Menunggu").length;
  let h=m;
  if(tab==="ringkasan")h+=`<h3>Satuan Kegiatan Kemahasiswaan Minimal</h3><p class="sub">Semester Ganjil Tahun Ajaran 2026/2027</p><div class="sum"><div class="box"><small>Total poin disetujui</small><div>${pts}</div></div><div class="box"><small>Target minimal</small><div>${TARGET}</div></div><div class="box"><small>Klaim menunggu</small><div>${wait}</div></div></div><div class="bar"><i style="width:${Math.min(100,pts/TARGET*100)}%"></i></div><p class="note">${Math.min(100,Math.round(pts/TARGET*100))}% menuju target. Poin masuk setelah klaim disetujui admin.</p>`;
- if(tab==="tiket"){const mc=codes.filter(c=>c.buyer===uid).sort((a,b)=>b.ts-a.ts);
-  h+=`<h3>Beli Tiket (Simulasi Pembeli)</h3><p class="sub">Dummy: anggap kamu membeli tiket kegiatan pihak luar. Sistem menerbitkan kode tiket sekali pakai.</p><div class="tw"><table><thead><tr><th>Kegiatan</th><th>Harga</th><th>Poin</th><th>Aksi</th></tr></thead><tbody>${EVS.map((e,i)=>`<tr><td>${esc(e[0])}</td><td>${e[2]}</td><td>${e[1]}</td><td><button class="s" data-b="${i}">Beli Tiket</button></td></tr>`).join("")}</tbody></table></div><h3 style="font-size:16px;margin-top:22px">Tiket saya (${mc.length})</h3><div class="tw"><table><thead><tr><th>Kode tiket</th><th>Kegiatan</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${mc.map(c=>`<tr><td><code>${esc(c.id)}</code></td><td>${esc(c.event)}</td><td>${st(c.status)}</td><td>${c.status==="tersedia"?`<button class="s" data-u="${esc(c.id)}">Pakai untuk klaim</button>`:"-"}</td></tr>`).join("")||'<tr><td colspan="4">Belum ada tiket.</td></tr>'}</tbody></table></div>`}
+ if(tab==="tiket"){
+  h+=`<h3>Beli Tiket</h3><p class="sub">Simulasi pembelian. Setiap tiket mendapat QR unik yang hanya bisa discan satu kali.</p><div class="tw"><table><thead><tr><th>Kegiatan</th><th>Harga</th><th>Poin</th><th>Aksi</th></tr></thead><tbody>${EVS.map((e,i)=>`<tr><td>${esc(e[0])}</td><td>${e[2]}</td><td>${e[1]}</td><td><button class="s" data-b="${i}">Beli Tiket</button></td></tr>`).join("")}</tbody></table></div><h3 style="font-size:16px;margin-top:22px">Tiket saya (${tix.length})</h3>${tix.map(t=>`<div class="wb ${t.status==="masuk"?"used":""}"><div class="wb1"><b>${esc(t.event)}</b><small>SKKM · ITB STIKOM Bali</small></div><div class="wb2">${qrSvg(t.token)}</div><div class="wb3"><span>GA · GENERAL ADMISSION</span><small>No. ${esc(t.token)}</small><small>${t.status==="masuk"?"SUDAH MASUK":"Belum dipakai"}</small></div><div class="wb4"></div></div>`).join("")||'<p class="note">Belum ada tiket.</p>'}<p class="note">Tunjukkan QR ke panitia. Setelah discan, poin SKKM masuk otomatis.</p>`}
  if(tab==="klaim")h+=`<h3>Klaim Poin</h3><p class="sub">Masukkan kode tiket kegiatan. Setiap kode hanya bisa dipakai satu kali.</p><div class="f"><label>Kode tiket<input id="cd" maxlength="8" placeholder="Contoh: 7F3K9QAB" value="${esc(draft)}"></label><button id="go">Kirim Klaim</button></div><p class="note">Kode ditolak admin akan dilepas lagi sehingga bisa diajukan ulang.</p>`;
  if(tab==="riwayat")h+=`<h3>Riwayat Klaim</h3><p class="sub">Status klaim poin SKKM kamu.</p><div class="tw"><table><thead><tr><th>Kode</th><th>Kegiatan</th><th>Tanggal</th><th>Poin</th><th>Status</th></tr></thead><tbody>${my.map(c=>`<tr><td><code>${esc(c.code)}</code></td><td>${esc(c.event)}</td><td>${fmt(c.ts)}</td><td>${c.pts}</td><td>${st(c.status)}</td></tr>`).join("")||'<tr><td colspan="5">Belum ada klaim.</td></tr>'}</tbody></table></div>`;
  if(tab==="admin"&&!admin)h+=`<h3>Masuk Admin</h3><p class="sub">Khusus admin kemahasiswaan.</p><div class="f"><label>Email<input id="le" type="email" value="${esc(lg.e)}"></label><label>Password<input id="lp" type="password"></label><button id="lb">Masuk</button></div>`;
