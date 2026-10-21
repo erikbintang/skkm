@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pembayaran - SKKM</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--tx:#111827;--mu:#6b7280;--bl:#0b6fd6}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#111418;--card:#1b1f26;--tx:#e5e7eb;--mu:#9ca3af}}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,sans-serif}
+header{background:var(--bl);color:#fff;padding:14px 5%;font-weight:600}
+main{max-width:460px;margin:24px auto;padding:0 18px}.card{background:var(--card);border-radius:14px;padding:24px;text-align:center;line-height:1.6}
+big{display:block;font-size:46px}.ok{color:#15803d}.no{color:#b91c1c}.mu{color:var(--mu);font-size:13px}
+a{display:inline-block;margin-top:14px;padding:11px 18px;border-radius:8px;background:var(--bl);color:#fff;text-decoration:none}
+</style></head><body>
+<header>Pembayaran (Simulasi) · SKKM</header>
+<main><div class="card" id="c">Memproses pembayaran...</div></main>
+<script>
+const SB_URL="https://eabcubayvkgtptvltihh.supabase.co",SB_KEY="sb_publishable_XAtElcShaCubfd2iz0OutQ_ccdXw4a8";
+const sb=window.supabase.createClient(SB_URL,SB_KEY),c=document.getElementById("c"),pay=decodeURIComponent(location.hash.slice(1));
+const esc=s=>String(s??"").replace(/[&<>"]/g,x=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[x]));
+(async()=>{
+ const i=(await sb.rpc("info_bayar",{p_pay:pay})).data||{};
+ if(!i.event){c.innerHTML='<big class="no">⛔</big><b>Kode pembayaran tidak dikenal</b>';return}
+ const r=await sb.rpc("bayar_tiket",{p_pay:pay}),ok=r.data==="ok";
+ c.innerHTML=`<big class="${ok?"ok":"no"}">${ok?"✅":"⚠️"}</big><b>${ok?"Pembayaran berhasil":esc(r.error?r.error.message:r.data)}</b><div>${esc(i.event)}</div><div>${esc(i.harga)}</div><p class="mu">Ini simulasi: QR dianggap sudah dibayar saat discan. Tiket QR kamu sudah terbit di halaman SKKM.</p><a href="index.html">Buka tiket saya</a>`
+})();
+</script></body></html>
