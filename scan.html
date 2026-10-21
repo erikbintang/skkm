@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scanner Panitia - SKKM</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<style>
+:root{--bg:#f3f4f6;--card:#fff;--tx:#111827;--mu:#6b7280;--bd:#e5e7eb;--bl:#0b6fd6}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark;--bg:#111418;--card:#1b1f26;--tx:#e5e7eb;--mu:#9ca3af;--bd:#2d333d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,sans-serif}
+header{background:var(--bl);color:#fff;padding:14px 5%}header h1{margin:0;font-size:18px;font-weight:600}
+main{max-width:520px;margin:0 auto;padding:18px}.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px;display:grid;gap:12px}
+h2{margin:0}label{display:grid;gap:5px;color:var(--mu);font-size:13px}
+input{padding:11px 12px;border:1px solid var(--bd);border-radius:8px;background:var(--card);color:var(--tx);font:inherit;min-width:0;flex:1}
+button{padding:11px 18px;border:0;border-radius:8px;background:var(--bl);color:#fff;font:inherit;font-weight:500;cursor:pointer}button.s{background:var(--bd);color:var(--tx);padding:6px 12px}
+.top{display:flex;justify-content:space-between;align-items:center}.f{display:flex;gap:8px}
+video{width:100%;border-radius:10px;background:#000;aspect-ratio:1/1;object-fit:cover}
+.res{padding:16px;border-radius:10px;background:var(--bg);text-align:center;line-height:1.5}.res big{display:block;font-size:24px;font-weight:700}
+.res.ok{background:#dcfce7;color:#15803d}.res.no{background:#fee2e2;color:#b91c1c}.msg.e{color:#b91c1c;margin:0}
+</style></head><body>
+<header><h1>Scanner Panitia · SKKM</h1></header><main id="app"></main>
+<script>
+const SB_URL="https://eabcubayvkgtptvltihh.supabase.co",SB_KEY="sb_publishable_XAtElcShaCubfd2iz0OutQ_ccdXw4a8";
+const sb=window.supabase.createClient(SB_URL,SB_KEY);
+const $=s=>document.querySelector(s),app=$("#app"),esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let cnt=0,last={t:"",ts:0},busy=false,stream=null,run=false;
+function showLogin(m){app.innerHTML=`<div class="card"><h2>Masuk Panitia</h2>${m?`<p class="msg e">${esc(m)}</p>`:""}<label>Email<input id="e" type="email"></label><label>Password<input id="p" type="password"></label><button id="b">Masuk</button></div>`;
+ $("#b").onclick=async()=>{const r=await sb.auth.signInWithPassword({email:$("#e").value,password:$("#p").value});r.error?showLogin("Login gagal: "+r.error.message):showScan()}}
+function show(d){const r=$("#res");r.className="res "+(d.ok?"ok":"no");
+ r.innerHTML=`<big>${d.ok?"✅ VALID":"⛔ DITOLAK"}</big><div>${esc(d.msg)}</div>${d.nim?`<div>NIM ${esc(d.nim)}</div>`:""}${d.event?`<div>${esc(d.event)}</div>`:""}`}
+async function check(t,force){t=t.trim().toUpperCase();if(!t||busy)return;
+ if(!force&&t===last.t&&Date.now()-last.ts<4000)return;busy=true;last={t,ts:Date.now()};
+ const r=await sb.rpc("scan_tiket",{p_token:t}),d=r.error?{ok:false,msg:r.error.message}:r.data;
+ show(d);if(d.ok){cnt++;$("#n").textContent=cnt}busy=false}
+async function showScan(){
+ app.innerHTML=`<div class="card"><div class="top"><b>Berhasil masuk: <span id="n">${cnt}</span></b><button class="s" id="o">Keluar</button></div><video id="v" playsinline muted></video><canvas id="c" hidden></canvas><div id="res" class="res">Arahkan kamera ke QR tiket</div><div class="f"><input id="m" placeholder="atau ketik kode tiket" maxlength="12"><button id="g">Cek</button></div></div>`;
+ $("#g").onclick=()=>{check($("#m").value,true);$("#m").value=""};
+ $("#o").onclick=async()=>{run=false;stream&&stream.getTracks().forEach(t=>t.stop());await sb.auth.signOut();showLogin()};
+ const v=$("#v"),c=$("#c"),x=c.getContext("2d",{willReadFrequently:true});
+ try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});v.srcObject=stream;await v.play();run=true;
+  const tick=()=>{if(!run)return;if(v.readyState===v.HAVE_ENOUGH_DATA){c.width=v.videoWidth;c.height=v.videoHeight;x.drawImage(v,0,0);
+   const im=x.getImageData(0,0,c.width,c.height),q=jsQR(im.data,im.width,im.height,{inversionAttempts:"dontInvert"});if(q&&q.data)check(q.data)}
+   requestAnimationFrame(tick)};tick()}
+ catch(e){$("#res").textContent="Kamera tidak bisa dibuka. Izinkan akses kamera, atau pakai kode manual."}}
+(async()=>{const s=await sb.auth.getSession();s.data.session?showScan():showLogin()})();
+</script></body></html>
