@@ -63,12 +63,14 @@ $("#pers").onclick=()=>$("#dd").classList.toggle("open");
 const T={ringkasan:"Ringkasan",tiket:"Tiket",klaim:"Klaim Poin",riwayat:"Riwayat"};
 const EVS=[["Seminar Nasional Cyber Security",5,"Rp 50.000"],["Donasi & Workshop Peduli Bali",3,"Rp 25.000"],["Workshop UI/UX Komunitas Luar",4,"Rp 35.000"]];
 function mine(){return claims.filter(c=>c.uid===uid).sort((a,b)=>b.ts-a.ts)}
-async function load(){
+let sig="";
+async function load(quiet){
  if(!sb){msg=["e","Isi SB_URL dan SB_KEY di bagian atas script file ini."];return render()}
  const b=await sb.from("claims").select("*").order("created_at",{ascending:false});
  const t=await sb.rpc("tiket_saya2",{p_uid:uid});tix=t.data||[];
  const a=admin?await sb.from("codes").select("*").order("created_at",{ascending:false}):await sb.rpc("tiket_saya",{p_uid:uid});
- const er=a.error||b.error;
+ const er=a.error||b.error,sg=JSON.stringify([a.data,b.data,t.data,er&&er.message]);
+ if(quiet&&sg===sig)return;sig=sg;
  if(er)msg=["e","Gagal terhubung ke server: "+er.message];
  else{codes=a.data.map(c=>({...c,id:c.code,ts:Date.parse(c.created_at)}));claims=b.data.map(c=>({...c,ts:Date.parse(c.created_at)}))}
  render()}
@@ -127,5 +129,5 @@ function render0(){
   document.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>dec(claims.find(c=>c.id===b.dataset.r),false))}}
 (async()=>{if(!nim){nim=prompt("Masukkan NIM kamu (untuk uji coba):")||"-";localStorage.nim=nim}
  if(sb){const s=await sb.auth.getSession();admin=!!s.data.session}
- await load();let k=0;setInterval(()=>{k++;if(sb&&document.activeElement.tagName!=="INPUT"&&(tix.some(t=>t.status==="menunggu")||k%3===0))load()},3000)})();
+ await load();let k=0;setInterval(()=>{k++;if(sb&&document.activeElement.tagName!=="INPUT"&&(tix.some(t=>t.status==="menunggu")||k%3===0))load(true)},3000)})();
 </script></body></html>
